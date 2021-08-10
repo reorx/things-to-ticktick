@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -o errexit
-set -o nounset
+set -eu
 set -o pipefail
 [[ "${TRACE:-}" ]] && set -x
 
@@ -23,12 +22,43 @@ readonly ISCLCOMPLETED="status = 3"
 CSV_HEADER='"Folder Name","List Name","Title","Tags","Content","Is Check list","Start Date","Due Date","Reminder","Repeat","Priority","Status","Created Time","Completed Time","Order","Timezone","Is All Day","Is Floating","Column Name","Column Order","View Mode","taskId","parentId"'
 
 
-function main() {
+main() {
     require_sqlite3
     require_db
 
-    echo "$CSV_HEADER"
-    sqlite3 -csv -separator "," "$THINGSDB" "$(echo_tasks_query)" | awk '{gsub("<[^>]*>", "")}1'
+    case "${1-}" in
+        "all")
+            run_meta
+            run_tasks
+            ;;
+        "tasks")
+            run_tasks
+            ;;
+        "meta")
+            run_meta
+            ;;
+        "-h")
+            echo_usage
+            ;;
+        *)
+            echo_usage
+            exit 1
+            ;;
+    esac
+}
+
+
+echo_usage() {
+    cat <<EOF
+Export tasks from Things.app to Dida365 backup format.
+
+Usage: things_to_dida.sh COMMAND
+
+COMMAND:
+  all       export complete data to stdout
+  tasks     export tasks CSV to stdout, part of the 'all' result
+  meta      export metadata to stdout, part of the 'all' result
+EOF
 }
 
 require_sqlite3() {
@@ -45,19 +75,24 @@ require_db() {
   }
 }
 
+run_tasks() {
+    echo "$CSV_HEADER"
+    sqlite3 -csv -separator "," "$THINGSDB" "$(echo_tasks_query)"
+}
 
-function echo_tasks_query() {
+
+echo_tasks_query() {
     cat << EOF
 SELECT
   "",
-  coalesce(PROJECT.title, AREA.title, "Inbox"),
+  iif(PROJECT_ITEM.project IS NULL, coalesce(PROJECT.title, AREA.title, "Inbox"), T.title),
   iif(length(T.title), T.title, "no title"),
   GROUP_CONCAT(TAG.title),
   iif(
-    C1.task IS NULL,
+    CL.task IS NULL,
     REPLACE(T.notes, CHAR(10), CHAR(13)),
-    iif(T.notes = "", GROUP_CONCAT(C1.dida_title, ''), REPLACE(T.notes, CHAR(10), CHAR(13)) || '' || GROUP_CONCAT(C1.dida_title, ''))),
-  iif(C1.task IS NULL, "N", "Y"),
+    iif(T.notes = "", GROUP_CONCAT(CL.dida_title, ''), REPLACE(T.notes, CHAR(10), CHAR(13)) || '' || GROUP_CONCAT(CL.dida_title, ''))),
+  iif(CL.task IS NULL, "N", "Y"),
   "",
   "",
   "",
@@ -77,17 +112,45 @@ SELECT
   ""
 FROM $TASKTABLE T
 LEFT OUTER JOIN $TASKTABLE PROJECT ON T.project = PROJECT.uuid
+LEFT OUTER JOIN $TASKTABLE PROJECT_ITEM ON T.uuid = PROJECT_ITEM.project
 LEFT OUTER JOIN $AREATABLE AREA ON T.area = AREA.uuid
 LEFT OUTER JOIN $TASKTABLE HEADING ON T.actionGroup = HEADING.uuid
 LEFT OUTER JOIN $TASKTAGTABLE TAGS ON T.uuid = TAGS.tasks
 LEFT OUTER JOIN $TAGTABLE TAG ON TAGS.tags = TAG.uuid
 LEFT JOIN (
   SELECT iif($ISCLCOMPLETED, '▪', '▫') || title AS dida_title, task FROM $CLTABLE WHERE length(title) > 0
-) C1 ON C1.task = T.uuid
+) CL ON CL.task = T.uuid
 WHERE T.$ISNOTTRASHED AND (T.$ISOPEN OR T.$ISCOMPLETED)
 GROUP BY T.uuid
 ORDER BY T.creationDate DESC
 EOF
 }
 
-main
+run_meta() {
+    local normal=$(sqlite3 -csv "$THINGSDB" "$(echo_normal_count_query)")
+    local completed=$(sqlite3 -csv "$THINGSDB" "$(echo_completed_count_query)")
+    cat << EOF
+"Date: $(date +"%Y-%m-%d")+0000"
+"Version: 7.0"
+"Status: 
+$normal Normal
+$completed Completed
+0 Archived"
+EOF
+}
+
+echo_normal_count_query() {
+    cat << EOF
+SELECT count() FROM $TASKTABLE T
+WHERE T.$ISNOTTRASHED AND T.$ISOPEN
+EOF
+}
+
+echo_completed_count_query() {
+    cat << EOF
+SELECT count() FROM $TASKTABLE T
+WHERE T.$ISNOTTRASHED AND T.$ISCOMPLETED
+EOF
+}
+
+main "${@}"
