@@ -37,6 +37,9 @@ main() {
         "meta")
             run_meta
             ;;
+        "stat")
+            run_stat
+            ;;
         "-h")
             echo_usage
             ;;
@@ -58,6 +61,7 @@ COMMAND:
   all       export complete data to stdout
   tasks     export tasks CSV to stdout, part of the 'all' result
   meta      export metadata to stdout, part of the 'all' result
+  stat      show statistic of tasks
 EOF
 }
 
@@ -127,19 +131,25 @@ EOF
 }
 
 run_meta() {
-    local normal=$(sqlite3 -csv "$THINGSDB" "$(echo_normal_count_query)")
-    local completed=$(sqlite3 -csv "$THINGSDB" "$(echo_completed_count_query)")
     cat << EOF
 "Date: $(date +"%Y-%m-%d")+0000"
 "Version: 7.0"
 "Status: 
-$normal Normal
-$completed Completed
-0 Archived"
+0 Normal
+1 Completed
+2 Archived"
 EOF
 }
 
-echo_normal_count_query() {
+run_stat() {
+    local open_c=$(sqlite3 -csv "$THINGSDB" "$(echo_open_count_query)")
+    local completed_c=$(sqlite3 -csv "$THINGSDB" "$(echo_completed_count_query)")
+    echo "Tasks count:"
+    echo "- open: $open_c"
+    echo "- completed: $completed_c"
+}
+
+echo_open_count_query() {
     cat << EOF
 SELECT count() FROM $TASKTABLE T
 WHERE T.$ISNOTTRASHED AND T.$ISOPEN
