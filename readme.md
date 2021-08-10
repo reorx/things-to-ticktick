@@ -2,11 +2,11 @@
 
 Export tasks from Things.app to [TickTick](https://ticktick.com/) format.
 
-> **Note about TickTick:**
+> **Note about TickTick:** <br>
 > TickTick has a special version called Dida365 registered and operated in China mainland,
 > which is what I'm using. For what I know the two services have no differences
 > in functionality, so the script `things_to_dida.sh` should also work for TickTick,
-> if not, please tell me and I'll try to port it as `things_to_ticktick.sh`.
+> if not, please tell me and I'll try to port it as the real `things_to_ticktick.sh`.
 
 
 ## Usage
@@ -19,8 +19,8 @@ $ ./things_to_dida.sh all > dida-$(date +"%Y%m%d").csv
 
 2\. Go to the web app, click import button, and choose the file you just exported.
 
-- Dida365 links: [设置 > 备份与导入](https://dida365.com/webapp/#settings/backup), [如何在滴答清单中批量导入任务？](https://help.dida365.com/faqs/6194677415654981632/)
-- TickTick links: [How do I import data into TickTick from other apps?](https://support.ticktick.com/hc/en-us/articles/360012848611-How-do-I-import-data-into-TickTick-from-other-apps-)
+- Dida365: [设置 > 备份与导入](https://dida365.com/webapp/#settings/backup), [如何在滴答清单中批量导入任务？](https://help.dida365.com/faqs/6194677415654981632/)
+- TickTick: [How do I import data into TickTick from other apps?](https://support.ticktick.com/hc/en-us/articles/360012848611-How-do-I-import-data-into-TickTick-from-other-apps-)
 
 
 ## Consistency
@@ -32,14 +32,14 @@ In Things.app, task has the following statuses:
 - Completed
 - Cancelled
 
-and a attribute called `trashed` to determine whether it's deleted or not.
+there's an attribute called `trashed` used to determine whether it's deleted or not.
 
 This project only export those tasks that are either **Open** or **Completed**,
 and not **trashed** at the same time.
 
-Because migration is more about not losing the content, attributes like due date,
+Because migration is more about not losing the content, attributes like due date and
 start date are discarded, you can manually add them after importing,
-which normally should not cost too much work.
+which normally should not cause too much hassle.
 
 Created time and completed time are kept, they are alway very useful.
 
@@ -62,7 +62,7 @@ or edit the csv file.
 1. Install [visidata](https://github.com/saulpw/visidata)
 2. `./things_to_dida.sh tasks | vd -f csv`
 
-**GUI**:
+**GUI**: <br>
 Recommend [Easy CSV Editor](https://apps.apple.com/us/app/easy-csv-editor/id1171346381)
 
 
